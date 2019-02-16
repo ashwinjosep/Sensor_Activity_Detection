@@ -59,7 +59,7 @@ for i = 1 : length(groundTruthUsers)
     
     %Get Durations of food eating
     forkFoodDuration = (forkDataTruth(:,2)-forkDataTruth(:,1))*1000/30;
-    spoonFoodDuration = (spoonDataTspoonruth(:,2)-spoonDataTruth(:,1))*1000/30;
+    spoonFoodDuration = (spoonDataTruth(:,2)-spoonDataTruth(:,1))*1000/30;
     
     %Get Durations of Non Food Eating Activity
     forkNoFoodDuration = ([forkDataTruth(:,1);0]-[0;forkDataTruth(:,2)])*1000/30;
@@ -163,6 +163,7 @@ for i = 1 : length(groundTruthUsers)
         forkIMU(:,j) = forkIMU(:,j)/(abs(max(forkIMU(:,j))-min(forkIMU(:,j))));
         spoonIMU(:,j) = spoonIMU(:,j)/(abs(max(spoonIMU(:,j))-min(spoonIMU(:,j))));
     end
+    
     %Dividing into Eating and Non Eating Data
     idx=(forkEMG(:,10)==1);
     EatingDataEMG = forkEMG(idx,:);
@@ -173,9 +174,7 @@ for i = 1 : length(groundTruthUsers)
     NonEatingDataIMU = forkIMU(~idx,:);
 
     %Feature Extraction  
-    
-    %Calculating Fourier Transforms
-
+    %Transforming Features
     fftEatingEMG1 = fft(EatingDataEMG(:,2),50);
     fftEatingEMG1(1)=[];
     powerfftEatingEMG1=fftEatingEMG1.*conj(fftEatingEMG1)/50;
@@ -262,39 +261,35 @@ for i = 1 : length(groundTruthUsers)
     NonEating = [EMGNonEating IMUNonEating];
     featureNonEatingUser = [featureNonEatingUser;NonEating];
 end
+
 featureUser = featureEatingUser;
-eat_length = length(featureUser);
-featureUser = [featureUser;featureNonEatingUser];
-C = cov(featureUser);
-[V,D] = eig(C);
-[d,ind] = sort(diag(D));
-Ds = D(ind,ind);
-Vs = V(:,ind);
 
+% Eigen Vector Analysis
+% eat_length = length(featureUser);
+% featureUser = [featureUser;featureNonEatingUser];
+% C = cov(featureUser);
+% [V,D] = eig(C);
+% [d,ind] = sort(diag(D));
+% Ds = D(ind,ind);
+% Vs = V(:,ind);
+
+% PCA
 [coeff, score, latent] = pca(featureUser);
+% Score contains the new feature matrix
 
-vbls = {'','','','','','','','','','','','','IMU5','','IMU7','IMU8','',''};
-figure()
-plot(score((1:eat_length),1), score((1:eat_length),2),'b+')
-hold on
-plot(score(eat_length+1:length(featureUser),1), score(eat_length+1:length(featureUser),2),'ro')
-hold off
-xlabel('1st Principal Component')
-ylabel('2nd Principal Component')
-zlabel('3rd Principal Component')
-biplot(coeff(:,1:3),'Scores',score(:,1:3),'Varlabels',vbls);
+% Figure Plot
+% vbls = {'','','','','','','','','','','','','IMU5','','IMU7','IMU8','',''};
+% figure()
+% plot(score((1:eat_length),1), score((1:eat_length),2),'b+')
+% hold on
+% plot(score(eat_length+1:length(featureUser),1), score(eat_length+1:length(featureUser),2),'ro')
+% hold off
+% xlabel('1st Principal Component')
+% ylabel('2nd Principal Component')
+% zlabel('3rd Principal Component')
+% biplot(coeff(:,1:3),'Scores',score(:,1:3),'Varlabels',vbls);
 
-function plotFigure(x1,x2,a1,a2,b1,b2,property,sensorType,sensorNo)
-    figure('visible','off');
-    hold on;
-    plot(x2,a2,'b',x1,a1,'r');
-    plot(x1,b1,'k',x2,b2,'g');
-    legendb1 = "Eating "+property;
-    legendb2 = "Eating "+property;
-    legend('Eating','Non Eating', legendb1, legendb2);
-    chartTitle = sensorType+sensorNo+" Sensor Data";
-    title(chartTitle);
-    hold off;
-    filename= chartTitle+" "+property+".png";
-    saveas(gcf,filename);    
-end
+%User dependent testing
+
+%User Independent testing
+
