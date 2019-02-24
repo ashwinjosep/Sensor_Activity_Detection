@@ -221,9 +221,79 @@ end
 [coeff, score, latent] = pca(featureArray(:,1:18));
 % Score contains the new feature matrix
 
-%User dependent testing
+%User dependent 
+metrics = [];
+users = unique(featureArray(:,19));
+for i=1:size(users,1)
+    %Prepare training and test data
+    data = [score(:,1:3) featureArray(:,19) featureArray(:,20)];
+    data = data(data(:,4)==users(i),:);
+    % Randomize and partition
+    data = data(randperm(size(data,1)),:);
+    train_data = data(1:ceil(0.6*size(data,1)),:); 
+    test_data = data(ceil(0.6*size(data,1))+1:end,:);
+   
+    %SVM
+    SVMModel = fitcsvm(train_data(:,1:3),train_data(:,5));
+    label = predict(SVMModel,test_data(:,1:3));
+    %Get metrics
+    [fscoreSVM, PrecisionSVM, RecallSVM] = compareResults(test_data(:,5), label);
+
+    %Decision Tree
+    tree = fitctree(train_data(:,1:3),train_data(:,5));
+    label = predict(tree,test_data(:,1:3));
+    %Get metrics
+    [fscoreDT, PrecisionDT, RecallDT] = compareResults(test_data(:,5), label);    
+    
+    metrics = [metrics; [fscoreSVM, PrecisionSVM, RecallSVM, users(i), "SVM"]];
+    metrics = [metrics; [fscoreDT, PrecisionDT, RecallDT, users(i), "DT"]];
+    
+    nnX = data(:,1:3);
+    nnY = data(:,5);
+  
+end
 
 %User Independent testing
+%Prepare training and test data
+data = [score(:,1:3) featureArray(:,20)];
+% Randomize and partition
+data = data(randperm(size(data,1)),:);
+train_data = data(1:ceil(0.6*size(data,1)),:); 
+test_data = data(ceil(0.6*size(data,1))+1:end,:);
+
+%SVM
+SVMModel = fitcsvm(train_data(:,1:3),train_data(:,4));
+label = predict(SVMModel,test_data(:,1:3));
+%Get metrics
+[fscoreSVM, PrecisionSVM, RecallSVM] = compareResults(test_data(:,4), label);
+
+%Decision Tree
+tree = fitctree(train_data(:,1:3),train_data(:,4));
+label = predict(tree,test_data(:,1:3));
+%Get metrics
+[fscoreDT, PrecisionDT, RecallDT] = compareResults(test_data(:,4), label);
+
+%Neural Network
+nnX = data(:,1:3);
+nnY = data(:,4);
+
+% gscatter(train_data(:,1),train_data(:,2),train_data(:,4));
+% sv = SVMModel.SupportVectors;
+% hold on
+% plot(sv(:,1 ),sv(:,2),'ko','MarkerSize',10)
+% legend('eating','non-eating','Support Vector')
+% hold off
+
+function [fscore, Precision, Recall] = compareResults(target, output)
+    C = confusionmat(target, output);
+    true_positive = C(1,1);
+    false_positive = C(2,1);
+    false_negative = C(1,2);
+    Precision = true_positive / (true_positive + false_positive);
+    Recall = true_positive / (true_positive + false_negative);
+    fscore = 2 * Precision * Recall / (Precision + Recall);
+    
+end
 
 % Function for Feature Extraction
 function transformedRow = featureExtract(ActivityDataEMG, ActivityDataIMU)

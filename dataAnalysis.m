@@ -80,7 +80,7 @@ for i = 1 : 4%length(groundTruthUsers)
         endTimeStamp = beginTimeStamp - forkFoodDuration(j,1);
         forkFoodDuration(j,2) = beginTimeStamp;
         forkFoodDuration(j,3) = endTimeStamp;
-        if(j>1)spoon
+        if(j>1)
             beginTimeStamp = endTimeStamp - forkNoFoodDuration(j-1,1);
         end
         j = j-1;
