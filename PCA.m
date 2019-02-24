@@ -13,8 +13,10 @@ forkEMG = [];
 forkIMU = [];
 spoonEMG = [];
 spoonIMU = [];
+activityRow = zeros(20,1);
 featureEatingUser = [];
 featureNonEatingUser = [];
+featureArray = [];
 for i = 1 : length(groundTruthUsers)
     
     % Reading users fork data from GroundTruth
@@ -71,6 +73,7 @@ for i = 1 : length(groundTruthUsers)
     forkDataEMG(:,10) = 0;
     forkDataIMU(:,12)=0;
     [forkFoodDurationRows,forkFoodDurationColumns] = size(forkFoodDuration);
+    [forkNoFoodDurationRows,forkNoFoodDurationColumns] = size(forkNoFoodDuration);
     [forkDataEMGRows, forkDataEMGColumns] = size(forkDataEMG);
     [forkDataIMURows, forkDataIMUColumns] = size(forkDataIMU);
     j = forkFoodDurationRows;
@@ -87,209 +90,197 @@ for i = 1 : length(groundTruthUsers)
         j = j-1;
     end
     
-    % Assign Class label in data
-    for j = 1:forkDataEMGRows
-        for k = 1:forkFoodDurationRows
-            if(and((forkDataEMG(j,1)>=forkFoodDuration(k,3)),(forkDataEMG(j,1)<=forkFoodDuration(k,2))))
-                forkDataEMG(j,10) = 1;
-                break;
-            end
-        end
-    end
-    
-    % Assign Class label in data
-    for j = 1:forkDataIMURows
-        for k = 1:forkFoodDurationRows
-            if(and((forkDataIMU(j,1)>=forkFoodDuration(k,3)),(forkDataIMU(j,1)<=forkFoodDuration(k,2))))
-                forkDataIMU(j,12) = 1;
-                break;
-            end
-        end
-    end
-    
-    %Comparing groundtruth and sensor data for spoons
-    spoonDataEMG(:,10) = 0;
-    spoonDataIMU(:,12) = 0;
-    [spoonFoodDurationRows,spoonFoodDurationColumns] = size(spoonFoodDuration);
-    [spoonDataEMGRows, spoonDataEMGColumns] = size(spoonDataEMG);
-    [spoonDataIMURows, spoonDataIMUColumns] = size(spoonDataIMU);
-    
-    j = spoonFoodDurationRows;
-    beginTimeStamp = spoonDataEMG(spoonDataEMGRows,1);
-    
-    % Get all food activity time ranges for spoon data
+    % Get all non food activity time ranges for fork data
+    beginTimeStamp = forkFoodDuration(forkFoodDurationRows,3);
+    j = forkNoFoodDurationRows;
     while(j >= 1)
-        endTimeStamp = beginTimeStamp - spoonFoodDuration(j,1);
-        spoonFoodDuration(j,2) = beginTimeStamp;
-        spoonFoodDuration(j,3) = endTimeStamp;
+        endTimeStamp = beginTimeStamp - forkNoFoodDuration(j,1);
+        forkNoFoodDuration(j,2) = beginTimeStamp;
+        forkNoFoodDuration(j,3) = endTimeStamp;
         if(j>1)
-            beginTimeStamp = endTimeStamp - spoonNoFoodDuration(j-1,1);
+            beginTimeStamp = endTimeStamp - forkFoodDuration(j+1,1);
         end
         j = j-1;
     end
     
-    % Assign Class label in data
-    for j = 1:spoonDataEMGRows
-        for k = 1:spoonFoodDurationRows
-            if(and((spoonDataEMG(j,1)>=spoonFoodDuration(k,3)),(spoonDataEMG(j,1)<=spoonFoodDuration(k,2))))
-                spoonDataEMG(j,10) = 1;
-                break;
-            end
+    % Now that fork food durations have been recorded classify each
+    % eating activity and assign their class labels
+    for k=1:forkFoodDurationRows
+        
+        % Classify each instance of the activity data for EMG sensors
+        idx = (and((forkDataEMG(:,1)>=forkFoodDuration(k,3)),(forkDataEMG(:,1)<=forkFoodDuration(k,2))));
+        forkEMGActivity = forkDataEMG(idx,:);
+        
+        % Classify each instance of the activity data for EMG sensors    
+        idx = (and((forkDataIMU(:,1)>=forkFoodDuration(k,3)),(forkDataIMU(:,1)<=forkFoodDuration(k,2))));
+        forkIMUActivity = forkDataIMU(idx,:);
+        
+        %Apply feature transformation function
+        if(and((~isempty(forkEMGActivity)),(~isempty(forkIMUActivity))))
+            activityRow = featureExtract(forkEMGActivity,forkIMUActivity);
         end
+
+        %Assign class label and user for the activity
+        activityRow(:,19) = str2double(extractBetween(groundTruthUsers(i).name,5,6));
+        activityRow(:,20) = 1;
+        
+        %Append to feature array
+        featureArray = [featureArray;activityRow];
     end
     
-    % Assign Class label in data
-    for j = 1:spoonDataIMURows
-        for k = 1:spoonFoodDurationRows
-            if(and((spoonDataIMU(j,1)>=spoonFoodDuration(k,3)),(spoonDataIMU(j,1)<=spoonFoodDuration(k,2))))
-                spoonDataIMU(j,12) = 1;
-                break;
-            end
+    % Now that fork food durations have been recorded classify each
+    % activity and assign their class labels
+    for k=1:forkNoFoodDurationRows
+        
+        % Classify each instance of the activity data for EMG sensors
+        idx = (and((forkDataEMG(:,1)>=forkNoFoodDuration(k,3)),(forkDataEMG(:,1)<=forkNoFoodDuration(k,2))));
+        forkEMGActivity = forkDataEMG(idx,:);
+        
+        % Classify each instance of the activity data for EMG sensors    
+        idx = (and((forkDataIMU(:,1)>=forkNoFoodDuration(k,3)),(forkDataIMU(:,1)<=forkNoFoodDuration(k,2))));
+        forkIMUActivity = forkDataIMU(idx,:);
+        
+        %Apply feature transformation function
+        if(and((~isempty(forkEMGActivity)),(~isempty(forkIMUActivity))))
+            activityRow = featureExtract(forkEMGActivity,forkIMUActivity);
         end
+
+        %Assign class label and user for the activity
+        activityRow(:,19) = str2double(extractBetween(groundTruthUsers(i).name,5,6));
+        activityRow(:,20) = 0;
+        
+        %Append to feature array
+        featureArray = [featureArray;activityRow];
     end
     
-    %Append data to global data matrix
-    forkEMG=[forkEMG;forkDataEMG];
-    forkIMU=[forkIMU;forkDataIMU];
-    spoonEMG=[spoonEMG;spoonDataEMG];
-    spoonIMU=[spoonIMU;spoonDataIMU];
+% Performing the same for each activity. So no longer required 
+%     % Assign Class label in data
+%     for j = 1:forkDataEMGRows
+%         for k = 1:forkFoodDurationRows
+%             if(and((forkDataEMG(j,1)>=forkFoodDuration(k,3)),(forkDataEMG(j,1)<=forkFoodDuration(k,2))))
+%                 forkDataEMG(j,10) = 1;
+%                 break;
+%             end
+%         end
+%     end
+%     
+%     % Assign Class label in data
+%     for j = 1:forkDataIMURows
+%         for k = 1:forkFoodDurationRows
+%             if(and((forkDataIMU(j,1)>=forkFoodDuration(k,3)),(forkDataIMU(j,1)<=forkFoodDuration(k,2))))
+%                 forkDataIMU(j,12) = 1;
+%                 break;
+%             end
+%         end
+%     end
+    
+%     %Comparing groundtruth and sensor data for spoons
+%     spoonDataEMG(:,10) = 0;
+%     spoonDataIMU(:,12) = 0;
+%     [spoonFoodDurationRows,spoonFoodDurationColumns] = size(spoonFoodDuration);
+%     [spoonDataEMGRows, spoonDataEMGColumns] = size(spoonDataEMG);
+%     [spoonDataIMURows, spoonDataIMUColumns] = size(spoonDataIMU);
+%     
+%     j = spoonFoodDurationRows;
+%     beginTimeStamp = spoonDataEMG(spoonDataEMGRows,1);
+%     
+%     % Get all food activity time ranges for spoon data
+%     while(j >= 1)
+%         endTimeStamp = beginTimeStamp - spoonFoodDuration(j,1);
+%         spoonFoodDuration(j,2) = beginTimeStamp;
+%         spoonFoodDuration(j,3) = endTimeStamp;
+%         if(j>1)
+%             beginTimeStamp = endTimeStamp - spoonNoFoodDuration(j-1,1);
+%         end
+%         j = j-1;
+%     end
+%     
+%     % Assign Class label in data
+%     for j = 1:spoonDataEMGRows
+%         for k = 1:spoonFoodDurationRows
+%             if(and((spoonDataEMG(j,1)>=spoonFoodDuration(k,3)),(spoonDataEMG(j,1)<=spoonFoodDuration(k,2))))
+%                 spoonDataEMG(j,10) = 1;
+%                 break;
+%             end
+%         end
+%     end
+%     
+%     % Assign Class label in data
+%     for j = 1:spoonDataIMURows
+%         for k = 1:spoonFoodDurationRows
+%             if(and((spoonDataIMU(j,1)>=spoonFoodDuration(k,3)),(spoonDataIMU(j,1)<=spoonFoodDuration(k,2))))
+%                 spoonDataIMU(j,12) = 1;
+%                 break;
+%             end
+%         end
+%     end
 
-    %Scaling Data
-    for j=2:9
-        forkEMG(:,j) = forkEMG(:,j)/(abs(max(forkEMG(:,j))-min(forkEMG(:,j))));
-        spoonEMG(:,j) = spoonEMG(:,j)/(abs(max(spoonEMG(:,j))-min(spoonEMG(:,j))));
-    end
-    for j=2:11
-        forkIMU(:,j) = forkIMU(:,j)/(abs(max(forkIMU(:,j))-min(forkIMU(:,j))));
-        spoonIMU(:,j) = spoonIMU(:,j)/(abs(max(spoonIMU(:,j))-min(spoonIMU(:,j))));
-    end
-    
-    %Dividing into Eating and Non Eating Data
-    idx=(forkEMG(:,10)==1);
-    EatingDataEMG = forkEMG(idx,:);
-    NonEatingDataEMG = forkEMG(~idx,:);
-
-    idx=(forkIMU(:,12)==1);
-    EatingDataIMU = forkIMU(idx,:);
-    NonEatingDataIMU = forkIMU(~idx,:);
-
-    %Feature Extraction  
-    %Transforming Features
-    fftEatingEMG1 = fft(EatingDataEMG(:,2),50);
-    fftEatingEMG1(1)=[];
-    powerfftEatingEMG1=fftEatingEMG1.*conj(fftEatingEMG1)/50;
-    EMG1Eating = powerfftEatingEMG1(3); %FFT 8 3  
-    
-    fftNonEatingEMG1 = fft(NonEatingDataEMG(:,2),50);
-    fftNonEatingEMG1(1)=[];
-    powerfftNonEatingEMG1=fftNonEatingEMG1.*conj(fftNonEatingEMG1)/50;    
-    EMG1NonEating = powerfftNonEatingEMG1(3); %FFT 8 3
-    
-    fftEatingEMG2 = fft(EatingDataEMG(:,3),50);
-    fftEatingEMG2(1)=[];
-    powerfftEatingEMG2=fftEatingEMG2.*conj(fftEatingEMG2)/50;    
-    EMG2Eating = powerfftEatingEMG2(6); %FFT 20 6
-    
-    fftNonEatingEMG2 = fft(NonEatingDataEMG(:,3),50);
-    fftNonEatingEMG2(1)=[];
-    powerfftNonEatingEMG2=fftNonEatingEMG2.*conj(fftNonEatingEMG2)/50;        
-    EMG2NonEating = powerfftNonEatingEMG2(6); %FFT 20 6
-    
-    EMG3Eating = rms(EatingDataEMG(:,4));
-    EMG3NonEating = rms(NonEatingDataEMG(:,4));
-    EMG4Eating =rms(EatingDataEMG(:,5));
-    EMG4NonEating = rms(NonEatingDataEMG(:,5));
-    EMG5Eating = rms(EatingDataEMG(:,6));
-    EMG5NonEating = rms(NonEatingDataEMG(:,6));
-    
-    fftEatingEMG6 = fft(EatingDataEMG(:,7),50);
-    fftEatingEMG6(1)=[];
-    powerfftEatingEMG6=fftEatingEMG6.*conj(fftEatingEMG6)/50;    
-    EMG6Eating = powerfftEatingEMG6(7);%FFT 24 7
-    
-    fftNonEatingEMG6 = fft(NonEatingDataEMG(:,7),50);
-    fftNonEatingEMG6(1)=[];
-    powerfftNonEatingEMG6=fftNonEatingEMG6.*conj(fftNonEatingEMG6)/50;
-    EMG6NonEating = powerfftNonEatingEMG6(7);%FFT 24 7
-    
-    fftEatingEMG7 = fft(EatingDataEMG(:,8),50);
-    fftEatingEMG7(1)=[];
-    powerfftEatingEMG7=fftEatingEMG7.*conj(fftEatingEMG7)/50;     
-    EMG7Eating = powerfftEatingEMG7(17);%FFT 64 17
-    
-    fftNonEatingEMG7 = fft(NonEatingDataEMG(:,8),50);
-    fftNonEatingEMG7(1)=[];
-    powerfftNonEatingEMG7=fftNonEatingEMG7.*conj(fftNonEatingEMG7)/50;
-    EMG7NonEating = powerfftNonEatingEMG7(17);   %FFT 64 17
-    
-    fftEatingEMG8 = fft(EatingDataEMG(:,9),50);
-    fftEatingEMG8(1)=[];
-    powerfftEatingEMG8=fftEatingEMG8.*conj(fftEatingEMG8)/50;
-    EMG8Eating = powerfftEatingEMG8(13);%FFT 48 13
-    
-    fftNonEatingEMG8 = fft(NonEatingDataEMG(:,9),50);
-    fftNonEatingEMG8(1)=[];
-    powerfftNonEatingEMG8=fftNonEatingEMG8.*conj(fftNonEatingEMG8)/50;
-    EMG8NonEating = powerfftNonEatingEMG8(13);%FFT 48 13
-    
-    IMU1Eating = var(EatingDataIMU(:,2));
-    IMU1NonEating = var(NonEatingDataIMU(:,2));
-    IMU2Eating = var(EatingDataIMU(:,3));
-    IMU2NonEating = var(NonEatingDataIMU(:,3));
-    IMU3Eating = var(EatingDataIMU(:,4));
-    IMU3NonEating = var(NonEatingDataIMU(:,4));
-    IMU4Eating = var(EatingDataIMU(:,5));
-    IMU4NonEating = var(NonEatingDataIMU(:,5));
-    IMU5Eating = entropy(EatingDataIMU(:,6));
-    IMU5NonEating = entropy(NonEatingDataIMU(:,6));
-    IMU6Eating = mean(EatingDataIMU(:,7));
-    IMU6NonEating = mean(NonEatingDataIMU(:,7));
-    IMU7Eating = entropy(EatingDataIMU(:,8));
-    IMU7NonEating = entropy(NonEatingDataIMU(:,8));
-    IMU8Eating = entropy(EatingDataIMU(:,9));
-    IMU8NonEating = entropy(NonEatingDataIMU(:,9));
-    IMU9Eating = rms(EatingDataIMU(:,10));
-    IMU9NonEating = rms(NonEatingDataIMU(:,10));
-    IMU10Eating = rms(EatingDataIMU(:,11));
-    IMU10NonEating = rms(NonEatingDataIMU(:,11));
-    IMUEating = [IMU1Eating IMU2Eating IMU3Eating IMU4Eating IMU5Eating IMU6Eating IMU7Eating IMU8Eating IMU9Eating IMU10Eating];
-    IMUNonEating = [IMU1NonEating IMU2NonEating IMU3NonEating IMU4NonEating IMU5NonEating IMU6NonEating IMU7NonEating IMU8NonEating IMU9NonEating IMU10NonEating];
-    EMGEating = [EMG1Eating EMG2Eating EMG3Eating EMG4Eating EMG5Eating EMG6Eating EMG7Eating EMG8Eating];
-    EMGNonEating = [EMG1NonEating EMG2NonEating EMG3NonEating EMG4NonEating EMG5NonEating EMG6NonEating EMG7NonEating EMG8NonEating];
-    Eating = [EMGEating IMUEating];
-    featureEatingUser = [featureEatingUser;Eating];
-    NonEating = [EMGNonEating IMUNonEating];
-    featureNonEatingUser = [featureNonEatingUser;NonEating];
 end
 
-featureUser = featureEatingUser;
-
-% Eigen Vector Analysis
-% eat_length = length(featureUser);
-% featureUser = [featureUser;featureNonEatingUser];
-% C = cov(featureUser);
-% [V,D] = eig(C);
-% [d,ind] = sort(diag(D));
-% Ds = D(ind,ind);
-% Vs = V(:,ind);
-
 % PCA
-[coeff, score, latent] = pca(featureUser);
+[coeff, score, latent] = pca(featureArray(:,1:18));
 % Score contains the new feature matrix
-
-% Figure Plot
-% vbls = {'','','','','','','','','','','','','IMU5','','IMU7','IMU8','',''};
-% figure()
-% plot(score((1:eat_length),1), score((1:eat_length),2),'b+')
-% hold on
-% plot(score(eat_length+1:length(featureUser),1), score(eat_length+1:length(featureUser),2),'ro')
-% hold off
-% xlabel('1st Principal Component')
-% ylabel('2nd Principal Component')
-% zlabel('3rd Principal Component')
-% biplot(coeff(:,1:3),'Scores',score(:,1:3),'Varlabels',vbls);
 
 %User dependent testing
 
 %User Independent testing
+
+% Function for Feature Extraction
+function transformedRow = featureExtract(ActivityDataEMG, ActivityDataIMU)
+
+    % Scaling data
+    for j=2:9
+        ActivityDataEMG(:,j) = ActivityDataEMG(:,j)/(abs(max(ActivityDataEMG(:,j))-min(ActivityDataEMG(:,j))));
+    end
+    for j=2:11
+        ActivityDataIMU(:,j) = ActivityDataIMU(:,j)/(abs(max(ActivityDataIMU(:,j))-min(ActivityDataIMU(:,j))));
+    end
+    
+    %Feature Extraction  
+    
+    %Transforming Features
+    fftEMG1 = fft(ActivityDataEMG(:,2),50);
+    fftEMG1(1)=[];
+    powerfftEMG1=fftEMG1.*conj(fftEMG1)/50;
+    EMG1 = powerfftEMG1(3); %FFT 8 3  
+
+    fftEMG2 = fft(ActivityDataEMG(:,3),50);
+    fftEMG2(1)=[];
+    powerfftEMG2=fftEMG2.*conj(fftEMG2)/50;    
+    EMG2 = powerfftEMG2(6); %FFT 20 6
+    
+    EMG3 = rms(ActivityDataEMG(:,4));
+    EMG4 =rms(ActivityDataEMG(:,5));
+    EMG5 = rms(ActivityDataEMG(:,6));
+    
+    fftEMG6 = fft(ActivityDataEMG(:,7),50);
+    fftEMG6(1)=[];
+    powerfftEMG6=fftEMG6.*conj(fftEMG6)/50;    
+    EMG6 = powerfftEMG6(7);%FFT 24 7
+    
+    fftEMG7 = fft(ActivityDataEMG(:,8),50);
+    fftEMG7(1)=[];
+    powerfftEMG7=fftEMG7.*conj(fftEMG7)/50;     
+    EMG7 = powerfftEMG7(17);%FFT 64 17
+    
+    
+    fftEMG8 = fft(ActivityDataEMG(:,9),50);
+    fftEMG8(1)=[];
+    powerfftEMG8=fftEMG8.*conj(fftEMG8)/50;
+    EMG8 = powerfftEMG8(13);%FFT 48 13
+    
+    IMU1 = var(ActivityDataIMU(:,2));
+    IMU2 = var(ActivityDataIMU(:,3));
+    IMU3 = var(ActivityDataIMU(:,4));
+    IMU4 = var(ActivityDataIMU(:,5));
+    IMU5 = entropy(ActivityDataIMU(:,6));
+    IMU6 = mean(ActivityDataIMU(:,7));
+    IMU7 = entropy(ActivityDataIMU(:,8));
+    IMU8 = entropy(ActivityDataIMU(:,9));
+    IMU9 = rms(ActivityDataIMU(:,10));
+    IMU10 = rms(ActivityDataIMU(:,11));
+    IMU = [IMU1 IMU2 IMU3 IMU4 IMU5 IMU6 IMU7 IMU8 IMU9 IMU10];
+    EMG = [EMG1 EMG2 EMG3 EMG4 EMG5 EMG6 EMG7 EMG8];
+    transformedRow = [EMG IMU];
+end
 
